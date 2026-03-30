@@ -97,6 +97,31 @@ type PendingNavigation = {
   source: string;
 } | null;
 
+type SizeMatch = {
+  label: string | null;
+  available: boolean;
+  availableLabels: string[];
+};
+
+type SizeSelectionResult =
+  | {
+      error: string;
+    }
+  | {
+      sizeLabel: string;
+    };
+
+type BagAddResult =
+  | {
+      error: string;
+    }
+  | {
+      productId: string;
+      name: string;
+      sizeLabel: string | null;
+      bagStatus: "added";
+    };
+
 type PersistedLiveSession = {
   active: boolean;
   handle?: string;
@@ -178,6 +203,116 @@ function parseStringArray(value: unknown) {
     .filter(Boolean);
 
   return values.length > 0 ? values : undefined;
+}
+
+function normalizeSizeText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function expandSizeAliases(value: string) {
+  const normalized = normalizeSizeText(value);
+  const aliases = new Set<string>();
+
+  if (!normalized) {
+    return aliases;
+  }
+
+  aliases.add(normalized);
+
+  switch (normalized) {
+    case "xs":
+    case "extra small":
+    case "x small":
+      aliases.add("xs");
+      aliases.add("extra small");
+      break;
+    case "s":
+    case "small":
+      aliases.add("s");
+      aliases.add("small");
+      break;
+    case "m":
+    case "medium":
+      aliases.add("m");
+      aliases.add("medium");
+      break;
+    case "l":
+    case "large":
+      aliases.add("l");
+      aliases.add("large");
+      break;
+    case "xl":
+    case "extra large":
+    case "x large":
+      aliases.add("xl");
+      aliases.add("extra large");
+      break;
+    default:
+      break;
+  }
+
+  if (normalized.startsWith("size ")) {
+    const trimmed = normalized.slice("size ".length).trim();
+
+    if (trimmed) {
+      aliases.add(trimmed);
+      aliases.add(`us ${trimmed}`);
+    }
+  }
+
+  if (/^\d+$/.test(normalized)) {
+    aliases.add(`us ${normalized}`);
+    aliases.add(`size ${normalized}`);
+  }
+
+  if (/^us \d+$/.test(normalized)) {
+    const numeric = normalized.replace(/^us /, "");
+    aliases.add(numeric);
+    aliases.add(`size ${numeric}`);
+  }
+
+  return aliases;
+}
+
+function listAvailableSizes(product: StoreProduct) {
+  return product.sizes
+    .filter((size) => size.available)
+    .map((size) => size.label);
+}
+
+function matchRequestedSize(
+  product: StoreProduct,
+  requestedSize: string,
+): SizeMatch {
+  if (product.sizes.length === 0) {
+    return {
+      label: null,
+      available: false,
+      availableLabels: [],
+    };
+  }
+
+  const requestedAliases = expandSizeAliases(requestedSize);
+  const matched = product.sizes.find((size) => {
+    const sizeAliases = expandSizeAliases(size.label);
+
+    for (const alias of requestedAliases) {
+      if (sizeAliases.has(alias)) {
+        return true;
+      }
+    }
+
+    return false;
+  });
+
+  return {
+    label: matched?.label ?? null,
+    available: matched?.available ?? false,
+    availableLabels: listAvailableSizes(product),
+  };
 }
 
 function mergeFilters(
@@ -790,6 +925,147 @@ export function StorefrontProvider({
   const getSelectedSizeForProduct = (product: StoreProduct | null) =>
     resolveSelectedSize(product, selectedSizesRef.current);
 
+  const resolveToolProduct = (
+    args: Record<string, unknown>,
+    includeActiveProduct = true,
+  ) => {
+    const resultIndex = parseNumber(args.resultIndex);
+    const productId = parseString(args.productId);
+
+    return (
+      (productId
+        ? products.find((entry) => entry.id === productId) ??
+          searchStateRef.current.results.find((entry) => entry.id === productId)
+        : undefined) ??
+      (resultIndex
+        ? searchStateRef.current.results[Math.max(0, resultIndex - 1)]
+        : undefined) ??
+      (includeActiveProduct ? activeProductRef.current : undefined) ??
+      null
+    );
+  };
+
+  const setResolvedSizeForProduct = (product: StoreProduct, sizeLabel: string) => {
+    selectedSizesRef.current = {
+      ...selectedSizesRef.current,
+      [product.id]: sizeLabel,
+    };
+    setSelectedSizes((current) => ({
+      ...current,
+      [product.id]: sizeLabel,
+    }));
+    appendDebugEvent("size.selected", {
+      productId: product.id,
+      sizeLabel,
+    });
+    syncDebugState({
+      lastServerEvent: "size-selected",
+    });
+  };
+
+  const selectRequestedSizeForProduct = (
+    product: StoreProduct,
+    requestedSize: string,
+  ): SizeSelectionResult => {
+    if (product.sizes.length === 0) {
+      return {
+        error: `${product.name} does not have size options on this listing.`,
+      };
+    }
+
+    const match = matchRequestedSize(product, requestedSize);
+
+    if (!match.label) {
+      return {
+        error:
+          match.availableLabels.length > 0
+            ? `${product.name} does not have a size matching "${requestedSize}". Available sizes are ${match.availableLabels.join(", ")}.`
+            : `${product.name} does not currently have any available sizes.`,
+      };
+    }
+
+    if (!match.available) {
+      return {
+        error:
+          match.availableLabels.length > 0
+            ? `${product.name} is not available in ${match.label}. Available sizes are ${match.availableLabels.join(", ")}.`
+            : `${product.name} is not currently available in any size.`,
+      };
+    }
+
+    setResolvedSizeForProduct(product, match.label);
+
+    return {
+      sizeLabel: match.label,
+    };
+  };
+
+  const addResolvedProductToBag = (
+    product: StoreProduct,
+    requestedSize?: string,
+  ): BagAddResult => {
+    let selectedSize: string | null = getSelectedSizeForProduct(product);
+
+    if (requestedSize) {
+      const selection = selectRequestedSizeForProduct(product, requestedSize);
+
+      if ("error" in selection) {
+        return selection;
+      }
+
+      selectedSize = selection.sizeLabel;
+    }
+
+    if (product.sizes.length > 0 && !selectedSize) {
+      const availableSizes = listAvailableSizes(product);
+
+      return {
+        error:
+          availableSizes.length > 0
+            ? `${product.name} needs a size before it can be added. Available sizes are ${availableSizes.join(", ")}.`
+            : `${product.name} is currently out of stock in every size.`,
+      };
+    }
+
+    setBagItems((current) => {
+      const existing = current.find(
+        (item) =>
+          item.productId === product.id && item.sizeLabel === (selectedSize ?? null),
+      );
+
+      if (!existing) {
+        return [
+          ...current,
+          {
+            id: `bag-${product.id}-${selectedSize ?? "default"}-${Date.now()}`,
+            productId: product.id,
+            quantity: 1,
+            sizeLabel: selectedSize ?? null,
+          },
+        ];
+      }
+
+      return current.map((item) =>
+        item.id === existing.id ? { ...item, quantity: item.quantity + 1 } : item,
+      );
+    });
+
+    appendDebugEvent("bag.added", {
+      productId: product.id,
+      sizeLabel: selectedSize ?? null,
+    });
+    syncDebugState({
+      lastServerEvent: "bag-added",
+    });
+
+    return {
+      productId: product.id,
+      name: product.name,
+      sizeLabel: selectedSize ?? null,
+      bagStatus: "added",
+    };
+  };
+
   const getStorefrontContextPayload = () => {
     const currentPath = pathnameRef.current;
     const currentSearchTerm = searchTermRef.current;
@@ -802,6 +1078,7 @@ export function StorefrontProvider({
       category: product.category,
       price: product.price,
       inventory: product.inventory,
+      availableSizes: listAvailableSizes(product),
     }));
     const currentProduct = activeProductRef.current;
     const currentContext = buildRouteContext(
@@ -1000,10 +1277,13 @@ export function StorefrontProvider({
   };
 
   const selectProductSize = (productId: string, sizeLabel: string) => {
-    setSelectedSizes((current) => ({
-      ...current,
-      [productId]: sizeLabel,
-    }));
+    const product = products.find((entry) => entry.id === productId);
+
+    if (!product) {
+      return;
+    }
+
+    setResolvedSizeForProduct(product, sizeLabel);
   };
 
   const openProduct = (productId: string) => {
@@ -1021,37 +1301,18 @@ export function StorefrontProvider({
       return;
     }
 
-    const selectedSize = getSelectedSizeForProduct(product);
-
-    setBagItems((current) => {
-      const existing = current.find(
-        (item) =>
-          item.productId === product.id && item.sizeLabel === (selectedSize ?? null),
-      );
-
-      if (!existing) {
-        return [
-          ...current,
-          {
-            id: `bag-${product.id}-${selectedSize ?? "default"}-${Date.now()}`,
-            productId: product.id,
-            quantity: 1,
-            sizeLabel: selectedSize ?? null,
-          },
-        ];
-      }
-
-      return current.map((item) =>
-        item.id === existing.id ? { ...item, quantity: item.quantity + 1 } : item,
-      );
-    });
+    addResolvedProductToBag(product);
   };
 
   const removeFromBag = (itemId: string) => {
     setBagItems((current) => current.filter((item) => item.id !== itemId));
   };
 
-  const beginCheckout = (productId?: string, viaTool = false) => {
+  const beginCheckout = (
+    productId?: string,
+    viaTool = false,
+    requestedSize?: string,
+  ) => {
     const product =
       (productId ? products.find((entry) => entry.id === productId) : undefined) ??
       activeProductRef.current;
@@ -1060,7 +1321,25 @@ export function StorefrontProvider({
       return;
     }
 
-    const selectedSize = getSelectedSizeForProduct(product);
+    let selectedSize = getSelectedSizeForProduct(product);
+
+    if (requestedSize) {
+      const selection = selectRequestedSizeForProduct(product, requestedSize);
+
+      if ("error" in selection) {
+        setError(selection.error);
+        appendDebugEvent("checkout.blocked", {
+          productId: product.id,
+          reason: selection.error,
+        });
+        syncDebugState({
+          lastServerEvent: "checkout-blocked",
+        });
+        return;
+      }
+
+      selectedSize = selection.sizeLabel;
+    }
 
     setAttributeExplanation(null);
     clearPersistedSessionState();
@@ -1149,15 +1428,7 @@ export function StorefrontProvider({
       }
 
       case "openProduct": {
-        const resultIndex = parseNumber(args.resultIndex);
-        const productId = parseString(args.productId);
-        const product =
-          (productId
-            ? searchStateRef.current.results.find((entry) => entry.id === productId)
-            : undefined) ??
-          (resultIndex
-            ? searchStateRef.current.results[Math.max(0, resultIndex - 1)]
-            : undefined);
+        const product = resolveToolProduct(args, false);
 
         if (!product) {
           return {
@@ -1178,22 +1449,93 @@ export function StorefrontProvider({
         };
       }
 
+      case "selectProductSize": {
+        const requestedSize = parseString(args.sizeLabel);
+        const product = resolveToolProduct(args);
+
+        if (!requestedSize) {
+          return {
+            error: {
+              message: "I need a size to select, like large, medium, or size 10.",
+            },
+          };
+        }
+
+        if (!product) {
+          return {
+            error: {
+              message: "I could not find that product to choose a size for.",
+            },
+          };
+        }
+
+        const selection = selectRequestedSizeForProduct(product, requestedSize);
+
+        if ("error" in selection) {
+          return {
+            error: {
+              message: selection.error,
+            },
+          };
+        }
+
+        return {
+          output: {
+            productId: product.id,
+            name: product.name,
+            sizeLabel: selection.sizeLabel,
+            sizeStatus: "selected",
+          },
+        };
+      }
+
+      case "addToBag": {
+        const requestedSize = parseString(args.sizeLabel);
+        const product = resolveToolProduct(args);
+
+        if (!product) {
+          return {
+            error: {
+              message: "I could not find that item to add to the bag.",
+            },
+          };
+        }
+
+        const result = addResolvedProductToBag(product, requestedSize);
+
+        if ("error" in result) {
+          return {
+            error: {
+              message: result.error,
+            },
+          };
+        }
+
+        return {
+          output: result,
+        };
+      }
+
       case "beginCheckout": {
-        const resultIndex = parseNumber(args.resultIndex);
-        const productId = parseString(args.productId);
-        const product =
-          (productId
-            ? products.find((entry) => entry.id === productId)
-            : undefined) ??
-          (resultIndex
-            ? searchStateRef.current.results[Math.max(0, resultIndex - 1)]
-            : undefined) ??
-          activeProductRef.current;
+        const requestedSize = parseString(args.sizeLabel);
+        const product = resolveToolProduct(args);
 
         if (!product) {
           return {
             error: {
               message: "I could not find that item to take into checkout.",
+            },
+          };
+        }
+
+        const sizeSelection = requestedSize
+          ? selectRequestedSizeForProduct(product, requestedSize)
+          : null;
+
+        if (sizeSelection && "error" in sizeSelection) {
+          return {
+            error: {
+              message: sizeSelection.error,
             },
           };
         }
@@ -1205,6 +1547,10 @@ export function StorefrontProvider({
             productId: product.id,
             name: product.name,
             price: product.price,
+            sizeLabel:
+              sizeSelection && "sizeLabel" in sizeSelection
+                ? sizeSelection.sizeLabel
+                : getSelectedSizeForProduct(product),
             checkoutStatus: "started",
           },
         };

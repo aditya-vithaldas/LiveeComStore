@@ -17,6 +17,9 @@ const LIVE_SYSTEM_PROMPT = [
   "For broad discovery requests, call searchProducts with a concise normalized searchTerm plus only the filters that clearly apply. The app will navigate to the search page after searchProducts runs.",
   "When the shopper asks for a follow-up refinement like cheaper, under a budget, only in stock, another brand, narrower category, or similar, first call getStorefrontContext if the current page matters, then preserve the existing search intent and call filterResults instead of starting a fresh search.",
   "For requests such as first one, second one, open that, or show me details, first call getStorefrontContext when needed, then call openProduct using the current visible result list and a 1-based resultIndex when possible.",
+  "When the shopper asks to add an item to the bag or cart, call addToBag.",
+  "When the shopper specifies a size such as large, medium, XL, or a numbered shoe size, call selectProductSize first so the page state matches the spoken request before addToBag or beginCheckout.",
+  "If a shopper mixes a size availability question with an add-to-bag or checkout request, answer the size availability and confirm the exact size before calling addToBag or beginCheckout. For example, if they ask whether it is available in large and also ask to add it, ask whether they want the large added. Do not silently fall back to a different or default size.",
   "If the shopper says buy this item, buy this one, checkout, purchase this, or I want this, call beginCheckout. When the current page is a product page and no resultIndex is provided, use the open product.",
   "For questions like what does this mean, what is the warranty, tell me the shipping, explain OLED, or what does this attribute mean, call getStorefrontContext when needed and then call explainProductAttribute.",
   "Do not say products are already visible, in front of the shopper, or on screen unless getStorefrontContext shows the current page is search or product.",
@@ -97,9 +100,9 @@ export const PRODUCT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
-    name: "beginCheckout",
+    name: "selectProductSize",
     description:
-      "Navigate to checkout for the current product or a selected result and end the live shopping session.",
+      "Select a size for the current product or for a result item before bag or checkout actions. Use this for sizes like large, medium, XL, XS, or numbered shoe sizes.",
     parametersJsonSchema: {
       type: "object",
       additionalProperties: false,
@@ -109,6 +112,51 @@ export const PRODUCT_TOOL_DECLARATIONS: FunctionDeclaration[] = [
           description: "1-based position in the current visible results.",
         },
         productId: { type: "string" },
+        sizeLabel: {
+          type: "string",
+          description: "Requested size label or spoken size phrase.",
+        },
+      },
+      required: ["sizeLabel"],
+    },
+  },
+  {
+    name: "addToBag",
+    description:
+      "Add the current product or a selected result to the sample shopping bag. If the shopper requested a specific size, select that size first or provide sizeLabel.",
+    parametersJsonSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        resultIndex: {
+          type: "number",
+          description: "1-based position in the current visible results.",
+        },
+        productId: { type: "string" },
+        sizeLabel: {
+          type: "string",
+          description: "Optional requested size label or spoken size phrase.",
+        },
+      },
+    },
+  },
+  {
+    name: "beginCheckout",
+    description:
+      "Navigate to checkout for the current product or a selected result and end the live shopping session. If the shopper names a specific size, provide sizeLabel or select the size first.",
+    parametersJsonSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        resultIndex: {
+          type: "number",
+          description: "1-based position in the current visible results.",
+        },
+        productId: { type: "string" },
+        sizeLabel: {
+          type: "string",
+          description: "Optional requested size label or spoken size phrase.",
+        },
       },
     },
   },
