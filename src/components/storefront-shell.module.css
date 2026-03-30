@@ -1,0 +1,278 @@
+.page {
+  min-height: 100vh;
+  background: #f7f3ee;
+  color: #1b1a18;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 18px 32px 14px;
+  background: rgba(247, 243, 238, 0.94);
+  border-bottom: 1px solid rgba(27, 26, 24, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.brandBlock {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.brand {
+  font-family: var(--font-display), serif;
+  font-size: 1.8rem;
+  letter-spacing: 0.02em;
+}
+
+.nav {
+  display: flex;
+  gap: 18px;
+  font-size: 0.95rem;
+  color: rgba(27, 26, 24, 0.72);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(27, 26, 24, 0.18);
+}
+
+.statusidle {
+  background: rgba(27, 26, 24, 0.18);
+}
+
+.statusconnecting {
+  background: #c99a3d;
+}
+
+.statuslistening {
+  background: #2b8658;
+}
+
+.statusthinking {
+  background: #345fca;
+}
+
+.statusspeaking {
+  background: #ac5536;
+}
+
+.statuserror {
+  background: #bb3c4c;
+}
+
+.primaryButton,
+.secondaryButton {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.primaryButton {
+  background: #1f1d1a;
+  color: white;
+}
+
+.secondaryButton {
+  background: transparent;
+  border-color: rgba(27, 26, 24, 0.16);
+  color: #1b1a18;
+}
+
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.liveLine {
+  margin: 12px 0 0;
+  min-height: 1.2em;
+  font-size: 0.94rem;
+  color: rgba(27, 26, 24, 0.72);
+}
+
+.errorLine {
+  margin: 8px 0 0;
+  font-size: 0.84rem;
+  color: #a33a46;
+}
+
+.main {
+  padding: 28px 32px 360px;
+}
+
+.debugPanel {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 30;
+  width: min(920px, calc(100vw - 36px));
+  max-height: min(46vh, 420px);
+  padding: 16px;
+  background: rgba(24, 23, 21, 0.94);
+  color: #f6f2ec;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+}
+
+.debugHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.debugEyebrow {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(246, 242, 236, 0.56);
+}
+
+.debugHeader h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.debugActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.debugActions .secondaryButton {
+  color: #f6f2ec;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.debugGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 16px;
+}
+
+.debugGrid div {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.debugGrid dt {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(246, 242, 236, 0.56);
+}
+
+.debugGrid dd {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.debugWide {
+  grid-column: span 2;
+}
+
+.debugLog {
+  display: grid;
+  gap: 10px;
+  max-height: 220px;
+  padding-right: 4px;
+  overflow: auto;
+}
+
+.debugEvent {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.debugEventMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.debugEventMeta strong {
+  font-size: 0.86rem;
+}
+
+.debugEventMeta span {
+  font-size: 0.72rem;
+  color: rgba(246, 242, 236, 0.56);
+}
+
+.debugEvent p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(246, 242, 236, 0.9);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 800px) {
+  .header,
+  .main {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .headerRow,
+  .brandBlock {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .controls {
+    flex-wrap: wrap;
+  }
+
+  .main {
+    padding-bottom: 440px;
+  }
+
+  .debugPanel {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    max-height: 52vh;
+  }
+
+  .debugGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .debugWide {
+    grid-column: span 2;
+  }
+}
