@@ -46,6 +46,11 @@
   gap: 10px;
 }
 
+.startButtonWrap {
+  position: relative;
+  display: flex;
+}
+
 .statusDot {
   width: 10px;
   height: 10px;
@@ -100,6 +105,60 @@
 .primaryButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.starterTooltip {
+  position: absolute;
+  right: -10px;
+  bottom: calc(100% + 14px);
+  width: min(320px, calc(100vw - 48px));
+  padding: 14px 16px;
+  background: #fffaf3;
+  border: 1px solid rgba(27, 26, 24, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(39, 31, 20, 0.12);
+}
+
+.starterTooltip::after {
+  content: "";
+  position: absolute;
+  right: 42px;
+  top: calc(100% - 1px);
+  width: 14px;
+  height: 14px;
+  background: #fffaf3;
+  border-right: 1px solid rgba(27, 26, 24, 0.1);
+  border-bottom: 1px solid rgba(27, 26, 24, 0.1);
+  transform: rotate(45deg);
+}
+
+.starterTooltipTitle {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(27, 26, 24, 0.54);
+}
+
+.starterTooltipBody {
+  margin: 8px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #1b1a18;
+}
+
+.tooltipDismiss {
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  color: rgba(27, 26, 24, 0.64);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
 }
 
 .liveLine {
@@ -255,6 +314,21 @@
 
   .controls {
     flex-wrap: wrap;
+  }
+
+  .startButtonWrap {
+    width: 100%;
+  }
+
+  .starterTooltip {
+    left: 0;
+    right: auto;
+    width: min(100%, 320px);
+  }
+
+  .starterTooltip::after {
+    left: 34px;
+    right: auto;
   }
 
   .main {

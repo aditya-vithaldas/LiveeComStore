@@ -25,7 +25,9 @@ export function StorefrontShell({ children }: { children: React.ReactNode }) {
   } = useStorefront();
   const [debugOpen, setDebugOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [starterHintDismissed, setStarterHintDismissed] = useState(false);
   const bagCount = bagItems.reduce((total, item) => total + item.quantity, 0);
+  const showStarterHint = status === "idle" && !starterHintDismissed;
   const debugReport = useMemo(
     () =>
       JSON.stringify(
@@ -65,14 +67,41 @@ export function StorefrontShell({ children }: { children: React.ReactNode }) {
 
           <div className={styles.controls}>
             <StatusDot status={status} />
-            <button
-              type="button"
-              className={styles.primaryButton}
-              onClick={() => void startSession()}
-              disabled={status === "connecting"}
-            >
-              Start session
-            </button>
+            <div className={styles.startButtonWrap}>
+              {showStarterHint ? (
+                <div
+                  id="voice-shopping-tip"
+                  className={styles.starterTooltip}
+                  role="note"
+                  aria-live="polite"
+                >
+                  <p className={styles.starterTooltipTitle}>Try voice shopping</p>
+                  <p className={styles.starterTooltipBody}>
+                    Start the session and say, “Can you help me find a white t-shirt?”
+                  </p>
+                  <button
+                    type="button"
+                    className={styles.tooltipDismiss}
+                    onClick={() => setStarterHintDismissed(true)}
+                    aria-label="Dismiss voice shopping tip"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => {
+                  setStarterHintDismissed(true);
+                  void startSession();
+                }}
+                disabled={status === "connecting"}
+                aria-describedby={showStarterHint ? "voice-shopping-tip" : undefined}
+              >
+                Start session
+              </button>
+            </div>
             <button
               type="button"
               className={styles.secondaryButton}
