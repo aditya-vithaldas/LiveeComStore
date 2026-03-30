@@ -1,0 +1,11 @@
+#!include:.gitignore
+
+# Keep deployment uploads lean for Cloud Run source builds.
+.git
+.gitignore
+.gcloudignore
+.next
+coverage
+playwright-report
+test-results
+*.log
